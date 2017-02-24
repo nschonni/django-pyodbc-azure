@@ -61,16 +61,16 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
         # because of the limited capability of SQL Server to edit IDENTITY property
         for t in (AutoField, BigAutoField):
             if isinstance(old_field, t) or isinstance(new_field, t):
-                raise NotImplementedError("the backend doesn't support altering from/to %s." % t.__name__)
+                raise NotImplementedError("the backend doesn't support altering from/to {0!s}.".format(t.__name__))
         # Drop any FK constraints, we'll remake them later
         fks_dropped = set()
         if old_field.remote_field and old_field.db_constraint:
             fk_names = self._constraint_names(model, [old_field.column], foreign_key=True)
             if strict and len(fk_names) != 1:
-                raise ValueError("Found wrong number (%s) of foreign key constraints for %s.%s" % (
+                raise ValueError("Found wrong number ({0!s}) of foreign key constraints for {1!s}.{2!s}".format(
                     len(fk_names),
                     model._meta.db_table,
-                    old_field.column,
+                    old_field.column
                 ))
             for fk_name in fk_names:
                 fks_dropped.add((old_field.column,))
@@ -80,10 +80,10 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
             # Find the unique constraint for this field
             constraint_names = self._constraint_names(model, [old_field.column], unique=True)
             if strict and len(constraint_names) != 1:
-                raise ValueError("Found wrong number (%s) of unique constraints for %s.%s" % (
+                raise ValueError("Found wrong number ({0!s}) of unique constraints for {1!s}.{2!s}".format(
                     len(constraint_names),
                     model._meta.db_table,
-                    old_field.column,
+                    old_field.column
                 ))
             for constraint_name in constraint_names:
                 self.execute(self._delete_constraint_sql(self.sql_delete_unique, model, constraint_name))
@@ -110,10 +110,10 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
         if old_db_params['check'] != new_db_params['check'] and old_db_params['check']:
             constraint_names = self._constraint_names(model, [old_field.column], check=True)
             if strict and len(constraint_names) != 1:
-                raise ValueError("Found wrong number (%s) of check constraints for %s.%s" % (
+                raise ValueError("Found wrong number ({0!s}) of check constraints for {1!s}.{2!s}".format(
                     len(constraint_names),
                     model._meta.db_table,
-                    old_field.column,
+                    old_field.column
                 ))
             for constraint_name in constraint_names:
                 self.execute(self._delete_constraint_sql(self.sql_delete_check, model, constraint_name))
@@ -287,9 +287,9 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
             # First, drop the old PK
             constraint_names = self._constraint_names(model, primary_key=True)
             if strict and len(constraint_names) != 1:
-                raise ValueError("Found wrong number (%s) of PK constraints for %s" % (
+                raise ValueError("Found wrong number ({0!s}) of PK constraints for {1!s}".format(
                     len(constraint_names),
-                    model._meta.db_table,
+                    model._meta.db_table
                 ))
             for constraint_name in constraint_names:
                 self.execute(self._delete_constraint_sql(self.sql_delete_pk, model, constraint_name))
@@ -392,10 +392,10 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
             for columns in unique_columns:
                 constraint_names = self._constraint_names(model, columns, unique=True)
                 if strict and len(constraint_names) != 1:
-                    raise ValueError("Found wrong number (%s) of unique constraints for %s.%s" % (
+                    raise ValueError("Found wrong number ({0!s}) of unique constraints for {1!s}.{2!s}".format(
                         len(constraint_names),
                         model._meta.db_table,
-                        old_field.column,
+                        old_field.column
                     ))
                 for constraint_name in constraint_names:
                     self.execute(self._delete_constraint_sql(self.sql_delete_unique, model, constraint_name))
@@ -432,7 +432,7 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
         # Check constraints can go on the column SQL here
         db_params = field.db_parameters(connection=self.connection)
         if db_params['check']:
-            definition += " CHECK (%s)" % db_params['check']
+            definition += " CHECK ({0!s})".format(db_params['check'])
         # Build the SQL and run it
         sql = self.sql_create_column % {
             "table": self.quote_name(model._meta.db_table),
@@ -494,7 +494,7 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
             # Autoincrement SQL (for backends with inline variant)
             col_type_suffix = field.db_type_suffix(connection=self.connection)
             if col_type_suffix:
-                definition += " %s" % col_type_suffix
+                definition += " {0!s}".format(col_type_suffix)
             params.extend(extra_params)
             # FK
             if field.remote_field and field.db_constraint:
@@ -508,9 +508,9 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
                         "to_column": self.quote_name(to_column),
                     }
             # Add the SQL to our big list
-            column_sqls.append("%s %s" % (
+            column_sqls.append("{0!s} {1!s}".format(
                 self.quote_name(field.column),
-                definition,
+                definition
             ))
             # Autoincrement SQL (for backends with post table definition variant)
             if field.get_internal_type() in ("AutoField", "BigAutoField"):
@@ -606,15 +606,15 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
         if isinstance(value, datetime.datetime):
             if self.connection.use_legacy_datetime:
                 # exclude utc offset from the value
-                return "'%s'" % value.replace(tzinfo=None)
+                return "'{0!s}'".format(value.replace(tzinfo=None))
             else:
-                return "'%s'" % value
+                return "'{0!s}'".format(value)
         elif isinstance(value, (datetime.date, datetime.time)):
-            return "'%s'" % value
+            return "'{0!s}'".format(value)
         elif isinstance(value, six.string_types):
-            return "'%s'" % value.replace("'", "''")
+            return "'{0!s}'".format(value.replace("'", "''"))
         elif isinstance(value, six.buffer_types):
-            return "0x%s" % force_text(binascii.hexlify(value))
+            return "0x{0!s}".format(force_text(binascii.hexlify(value)))
         elif isinstance(value, bool):
             return "1" if value else "0"
         else:

@@ -37,7 +37,7 @@ class DatabaseClient(BaseDatabaseClient):
                 args += ["-i", defaults_file]
         else:
             dsn = options.get('dsn', '')
-            args = ['%s -v %s %s %s' % (self.executable_name, dsn, user, password)]
+            args = ['{0!s} -v {1!s} {2!s} {3!s}'.format(self.executable_name, dsn, user, password)]
 
         import subprocess
         try:

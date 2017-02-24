@@ -59,7 +59,7 @@ class DatabaseOperations(BaseDatabaseOperations):
 
     def bulk_insert_sql(self, fields, placeholder_rows):
         placeholder_rows_sql = (", ".join(row) for row in placeholder_rows)
-        values_sql = ", ".join("(%s)" % sql for sql in placeholder_rows_sql)
+        values_sql = ", ".join("({0!s})".format(sql) for sql in placeholder_rows_sql)
         return "VALUES " + values_sql
 
     def cache_key_culling_sql(self):
@@ -81,8 +81,8 @@ class DatabaseOperations(BaseDatabaseOperations):
             for f in unsupported_functions:
                 if isinstance(expression, f):
                     raise NotImplementedError(
-                        'SQL Server has no support for %s function.' %
-                        f.function)
+                        'SQL Server has no support for {0!s} function.'.format(
+                        f.function))
 
     def combine_duration_expression(self, connector, sub_expressions):
         lhs, rhs = sub_expressions
@@ -100,7 +100,7 @@ class DatabaseOperations(BaseDatabaseOperations):
         SQL Server requires special cases for some operators in query expressions
         """
         if connector == '^':
-            return 'POWER(%s)' % ','.join(sub_expressions)
+            return 'POWER({0!s})'.format(','.join(sub_expressions))
         return super(DatabaseOperations, self).combine_expression(connector, sub_expressions)
 
     def convert_datefield_value(self, value, expression, connection, context):
@@ -154,21 +154,21 @@ class DatabaseOperations(BaseDatabaseOperations):
         the SQL that extracts a value from the given date field field_name.
         """
         if lookup_type == 'week_day':
-            return "DATEPART(dw, %s)" % field_name
+            return "DATEPART(dw, {0!s})".format(field_name)
         else:
-            return "DATEPART(%s, %s)" % (lookup_type, field_name)
+            return "DATEPART({0!s}, {1!s})".format(lookup_type, field_name)
 
     def date_interval_sql(self, timedelta):
         """
         implements the interval functionality for expressions
         """
         sec = timedelta.seconds + timedelta.days * 86400
-        sql = 'DATEADD(second, %d%%s, CAST(%%s AS datetime))' % sec
+        sql = 'DATEADD(second, {0:d}%s, CAST(%s AS datetime))'.format(sec)
         if timedelta.microseconds:
             if self.connection.use_legacy_datetime:
-                sql = 'DATEADD(millisecond, %d%%s, CAST(%s AS datetime))' % (timedelta.microseconds // 1000, sql)
+                sql = 'DATEADD(millisecond, {0:d}%s, CAST({1!s} AS datetime))'.format(timedelta.microseconds // 1000, sql)
             else:
-                sql = 'DATEADD(microsecond, %d%%s, CAST(%s AS datetime2))' % (timedelta.microseconds, sql)
+                sql = 'DATEADD(microsecond, {0:d}%s, CAST({1!s} AS datetime2))'.format(timedelta.microseconds, sql)
         return sql, ()
 
     def date_trunc_sql(self, lookup_type, field_name):
@@ -178,26 +178,26 @@ class DatabaseOperations(BaseDatabaseOperations):
         the given specificity.
         """
         if lookup_type == 'year':
-            return "CONVERT(datetime, CONVERT(varchar, DATEPART(year, %s)) + '/01/01')" % field_name
+            return "CONVERT(datetime, CONVERT(varchar, DATEPART(year, {0!s})) + '/01/01')".format(field_name)
         if lookup_type == 'month':
-            return "CONVERT(datetime, CONVERT(varchar, DATEPART(year, %s)) + '/' + CONVERT(varchar, DATEPART(month, %s)) + '/01')" % (field_name, field_name)
+            return "CONVERT(datetime, CONVERT(varchar, DATEPART(year, {0!s})) + '/' + CONVERT(varchar, DATEPART(month, {1!s})) + '/01')".format(field_name, field_name)
         if lookup_type == 'day':
-            return "CONVERT(datetime, CONVERT(varchar(12), %s, 112))" % field_name
+            return "CONVERT(datetime, CONVERT(varchar(12), {0!s}, 112))".format(field_name)
 
     def datetime_cast_date_sql(self, field_name, tzname):
         if settings.USE_TZ and not tzname == 'UTC':
             offset = self._get_utcoffset(tzname)
-            field_name = 'DATEADD(second, %d, %s)' % (offset, field_name)
+            field_name = 'DATEADD(second, {0:d}, {1!s})'.format(offset, field_name)
         if self.connection.use_legacy_datetime:
-            sql = 'CONVERT(datetime, CONVERT(char(10), %s, 101), 101)' % field_name
+            sql = 'CONVERT(datetime, CONVERT(char(10), {0!s}, 101), 101)'.format(field_name)
         else:
-            sql = 'CAST(%s AS date)' % field_name
+            sql = 'CAST({0!s} AS date)'.format(field_name)
         return sql, []
 
     def datetime_extract_sql(self, lookup_type, field_name, tzname):
         if settings.USE_TZ and not tzname == 'UTC':
             offset = self._get_utcoffset(tzname)
-            field_name = 'DATEADD(second, %d, %s)' % (offset, field_name)
+            field_name = 'DATEADD(second, {0:d}, {1!s})'.format(offset, field_name)
         params = []
         sql = self.date_extract_sql(lookup_type, field_name)
         return sql, params
@@ -205,17 +205,17 @@ class DatabaseOperations(BaseDatabaseOperations):
     def datetime_trunc_sql(self, lookup_type, field_name, tzname):
         if settings.USE_TZ and not tzname == 'UTC':
             offset = self._get_utcoffset(tzname)
-            field_name = 'DATEADD(second, %d, %s)' % (offset, field_name)
+            field_name = 'DATEADD(second, {0:d}, {1!s})'.format(offset, field_name)
         params = []
         sql = ''
         if lookup_type in ('year', 'month', 'day'):
             sql = self.date_trunc_sql(lookup_type, field_name)
         elif lookup_type == 'hour':
-            sql = "CONVERT(datetime, SUBSTRING(CONVERT(varchar, %s, 20), 0, 14) + ':00:00')" % field_name
+            sql = "CONVERT(datetime, SUBSTRING(CONVERT(varchar, {0!s}, 20), 0, 14) + ':00:00')".format(field_name)
         elif lookup_type == 'minute':
-            sql = "CONVERT(datetime, SUBSTRING(CONVERT(varchar, %s, 20), 0, 17) + ':00')" % field_name
+            sql = "CONVERT(datetime, SUBSTRING(CONVERT(varchar, {0!s}, 20), 0, 17) + ':00')".format(field_name)
         elif lookup_type == 'second':
-            sql = "CONVERT(datetime, CONVERT(varchar, %s, 20))" % field_name
+            sql = "CONVERT(datetime, CONVERT(varchar, {0!s}, 20))".format(field_name)
         return sql, params
 
     def for_update_sql(self, nowait=False):
@@ -240,7 +240,7 @@ class DatabaseOperations(BaseDatabaseOperations):
         search of the given field_name. Note that the resulting string should
         contain a '%s' placeholder for the value being searched against.
         """
-        return 'CONTAINS(%s, %%s)' % field_name
+        return 'CONTAINS({0!s}, %s)'.format(field_name)
 
     def get_db_converters(self, expression):
         converters = super(DatabaseOperations, self).get_db_converters(expression)
@@ -305,7 +305,7 @@ class DatabaseOperations(BaseDatabaseOperations):
         """
         if name.startswith('[') and name.endswith(']'):
             return name # Quoting once is enough.
-        return '[%s]' % name
+        return '[{0!s}]'.format(name)
 
     def random_function_sql(self):
         """
@@ -342,13 +342,13 @@ class DatabaseOperations(BaseDatabaseOperations):
         "uses_savepoints" feature is True. The "sid" parameter is a string
         for the savepoint id.
         """
-        return "SAVE TRANSACTION %s" % sid
+        return "SAVE TRANSACTION {0!s}".format(sid)
 
     def savepoint_rollback_sql(self, sid):
         """
         Returns the SQL for rolling back the given savepoint.
         """
-        return "ROLLBACK TRANSACTION %s" % sid
+        return "ROLLBACK TRANSACTION {0!s}".format(sid)
 
     def sql_flush(self, style, tables, sequences, allow_cascade=False):
         """
@@ -374,7 +374,7 @@ class DatabaseOperations(BaseDatabaseOperations):
             # DBCC CHEKIDENT(table, RESEED, n) behavior.
             seqs = []
             for seq in sequences:
-                cursor.execute("SELECT COUNT(*) FROM %s" % self.quote_name(seq["table"]))
+                cursor.execute("SELECT COUNT(*) FROM {0!s}".format(self.quote_name(seq["table"])))
                 rowcnt = cursor.fetchone()[0]
                 elem = {}
                 if rowcnt:
@@ -385,9 +385,8 @@ class DatabaseOperations(BaseDatabaseOperations):
                 seqs.append(elem)
             cursor.execute("SELECT TABLE_NAME, CONSTRAINT_NAME FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE CONSTRAINT_TYPE not in ('PRIMARY KEY','UNIQUE')")
             fks = cursor.fetchall()
-            sql_list = ['ALTER TABLE %s NOCHECK CONSTRAINT %s;' % \
-                    (self.quote_name(fk[0]), self.quote_name(fk[1])) for fk in fks]
-            sql_list.extend(['%s %s %s;' % (style.SQL_KEYWORD('DELETE'), style.SQL_KEYWORD('FROM'),
+            sql_list = ['ALTER TABLE {0!s} NOCHECK CONSTRAINT {1!s};'.format(self.quote_name(fk[0]), self.quote_name(fk[1])) for fk in fks]
+            sql_list.extend(['{0!s} {1!s} {2!s};'.format(style.SQL_KEYWORD('DELETE'), style.SQL_KEYWORD('FROM'),
                              style.SQL_FIELD(self.quote_name(table)) ) for table in tables])
 
             if self.connection.to_azure_sql_db and self.connection.sql_server_version < 2014:
@@ -397,18 +396,17 @@ class DatabaseOperations(BaseDatabaseOperations):
                               RuntimeWarning)
             else:
                 # Then reset the counters on each table.
-                sql_list.extend(['%s %s (%s, %s, %s) %s %s;' % (
+                sql_list.extend(['{0!s} {1!s} ({2!s}, {3!s}, {4!s}) {5!s} {6!s};'.format(
                     style.SQL_KEYWORD('DBCC'),
                     style.SQL_KEYWORD('CHECKIDENT'),
                     style.SQL_FIELD(self.quote_name(seq["table"])),
                     style.SQL_KEYWORD('RESEED'),
-                    style.SQL_FIELD('%d' % seq['start_id']),
+                    style.SQL_FIELD('{0:d}'.format(seq['start_id'])),
                     style.SQL_KEYWORD('WITH'),
-                    style.SQL_KEYWORD('NO_INFOMSGS'),
+                    style.SQL_KEYWORD('NO_INFOMSGS')
                     ) for seq in seqs])
 
-            sql_list.extend(['ALTER TABLE %s CHECK CONSTRAINT %s;' % \
-                    (self.quote_name(fk[0]), self.quote_name(fk[1])) for fk in fks])
+            sql_list.extend(['ALTER TABLE {0!s} CHECK CONSTRAINT {1!s};'.format(self.quote_name(fk[0]), self.quote_name(fk[1])) for fk in fks])
             return sql_list
         else:
             return []
@@ -435,7 +433,7 @@ class DatabaseOperations(BaseDatabaseOperations):
         Returns the SQL that will be appended to tables or rows to define
         a tablespace. Returns '' if the backend doesn't use tablespaces.
         """
-        return "ON %s" % self.quote_name(tablespace)
+        return "ON {0!s}".format(self.quote_name(tablespace))
 
     def prep_for_like_query(self, x):
         """Prepares a value for use in a LIKE query."""

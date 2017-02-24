@@ -18,14 +18,12 @@ class DatabaseCreation(BaseDatabaseCreation):
             time.sleep(1)
             to_azure_sql_db = self.connection.to_azure_sql_db
             if not to_azure_sql_db:
-                cursor.execute("ALTER DATABASE %s SET SINGLE_USER WITH ROLLBACK IMMEDIATE"
-                                % self.connection.ops.quote_name(test_database_name))
-            cursor.execute("DROP DATABASE %s"
-                           % self.connection.ops.quote_name(test_database_name))
+                cursor.execute("ALTER DATABASE {0!s} SET SINGLE_USER WITH ROLLBACK IMMEDIATE".format(self.connection.ops.quote_name(test_database_name)))
+            cursor.execute("DROP DATABASE {0!s}".format(self.connection.ops.quote_name(test_database_name)))
 
     def sql_table_creation_suffix(self):
         suffix = []
         collation = self.connection.settings_dict['TEST'].get('COLLATION', None)
         if collation:
-            suffix.append('COLLATE %s' % collation)
+            suffix.append('COLLATE {0!s}'.format(collation))
         return ' '.join(suffix)

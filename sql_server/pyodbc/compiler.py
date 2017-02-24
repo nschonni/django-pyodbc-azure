@@ -42,7 +42,7 @@ def _as_sql_length(self, compiler, connection):
 def _as_sql_stddev(self, compiler, connection):
     function = 'STDEV'
     if self.function == 'STDDEV_POP':
-        function = '%sP' % function
+        function = '{0!s}P'.format(function)
     return self.as_sql(compiler, connection, function=function)
 
 def _as_sql_substr(self, compiler, connection):
@@ -53,7 +53,7 @@ def _as_sql_substr(self, compiler, connection):
 def _as_sql_variance(self, compiler, connection):
     function = 'VAR'
     if self.function == 'VAR_POP':
-        function = '%sP' % function
+        function = '{0!s}P'.format(function)
     return self.as_sql(compiler, connection, function=function)
 
 
@@ -98,15 +98,15 @@ class SQLCompiler(compiler.SQLCompiler):
 
             # SQL Server requires the keword for limitting at the begenning
             if do_limit and not do_offset:
-                result.append('TOP %d' % high_mark)
+                result.append('TOP {0:d}'.format(high_mark))
 
             out_cols = []
             col_idx = 1
             for _, (s_sql, s_params), alias in self.select + extra_select:
                 if alias:
-                    s_sql = '%s AS %s' % (s_sql, self.connection.ops.quote_name(alias))
+                    s_sql = '{0!s} AS {1!s}'.format(s_sql, self.connection.ops.quote_name(alias))
                 elif with_col_aliases or do_offset_emulation:
-                    s_sql = '%s AS %s' % (s_sql, 'Col%d' % col_idx)
+                    s_sql = '{0!s} AS {1!s}'.format(s_sql, 'Col{0:d}'.format(col_idx))
                     col_idx += 1
                 params.extend(s_params)
                 out_cols.append(s_sql)
@@ -115,7 +115,7 @@ class SQLCompiler(compiler.SQLCompiler):
             if do_offset:
                 meta = self.query.get_meta()
                 qn = self.quote_name_unless_alias
-                offsetting_order_by = '%s.%s' % (qn(meta.db_table), qn(meta.pk.db_column or meta.pk.column))
+                offsetting_order_by = '{0!s}.{1!s}'.format(qn(meta.db_table), qn(meta.pk.db_column or meta.pk.column))
                 if do_offset_emulation:
                     if order_by:
                         ordering = []
@@ -128,14 +128,14 @@ class SQLCompiler(compiler.SQLCompiler):
                                 src = next(iter(src.get_source_expressions()))
                                 o_sql, _  = src.as_sql(self, self.connection)
                                 odir = 'DESC' if expr.descending else 'ASC'
-                                o_sql = '%s %s' % (o_sql, odir)
+                                o_sql = '{0!s} {1!s}'.format(o_sql, odir)
                             ordering.append(o_sql)
                             params.extend(o_params)
                         offsetting_order_by = ', '.join(ordering)
                         order_by = []
-                    out_cols.append('ROW_NUMBER() OVER (ORDER BY %s) AS [rn]' % offsetting_order_by)
+                    out_cols.append('ROW_NUMBER() OVER (ORDER BY {0!s}) AS [rn]'.format(offsetting_order_by))
                 elif not order_by:
-                    order_by.append(((None, ('%s ASC' % offsetting_order_by, [], None))))
+                    order_by.append(((None, ('{0!s} ASC'.format(offsetting_order_by), [], None))))
 
             result.append(', '.join(out_cols))
 
@@ -158,7 +158,7 @@ class SQLCompiler(compiler.SQLCompiler):
             params.extend(f_params)
 
             if where:
-                result.append('WHERE %s' % where)
+                result.append('WHERE {0!s}'.format(where))
                 params.extend(w_params)
 
             grouping = []
@@ -171,10 +171,10 @@ class SQLCompiler(compiler.SQLCompiler):
                         "annotate() + distinct(fields) is not implemented.")
                 if not order_by:
                     order_by = self.connection.ops.force_no_ordering()
-                result.append('GROUP BY %s' % ', '.join(grouping))
+                result.append('GROUP BY {0!s}'.format(', '.join(grouping)))
 
             if having:
-                result.append('HAVING %s' % having)
+                result.append('HAVING {0!s}'.format(having))
                 params.extend(h_params)
 
             if order_by:
@@ -182,7 +182,7 @@ class SQLCompiler(compiler.SQLCompiler):
                 for _, (o_sql, o_params, _) in order_by:
                     ordering.append(o_sql)
                     params.extend(o_params)
-                result.append('ORDER BY %s' % ', '.join(ordering))
+                result.append('ORDER BY {0!s}'.format(', '.join(ordering)))
 
             # SQL Server requires the backend-specific emulation (2008 or earlier)
             # or an offset clause (2012 or newer) for offsetting
@@ -190,18 +190,18 @@ class SQLCompiler(compiler.SQLCompiler):
                 if do_offset_emulation:
                     # Construct the final SQL clause, using the initial select SQL
                     # obtained above.
-                    result = ['SELECT * FROM (%s) AS X WHERE X.rn' % ' '.join(result)]
+                    result = ['SELECT * FROM ({0!s}) AS X WHERE X.rn'.format(' '.join(result))]
                     # Place WHERE condition on `rn` for the desired range.
                     if do_limit:
-                        result.append('BETWEEN %d AND %d' % (low_mark+1, high_mark))
+                        result.append('BETWEEN {0:d} AND {1:d}'.format(low_mark+1, high_mark))
                     else:
-                        result.append('>= %d' % (low_mark+1))
+                        result.append('>= {0:d}'.format((low_mark+1)))
                     if not subquery:
                         result.append('ORDER BY X.rn')
                 else:
-                    result.append('OFFSET %d ROWS' % low_mark)
+                    result.append('OFFSET {0:d} ROWS'.format(low_mark))
                     if do_limit:
-                        result.append('FETCH FIRST %d ROWS ONLY' % (high_mark - low_mark))
+                        result.append('FETCH FIRST {0:d} ROWS ONLY'.format((high_mark - low_mark)))
 
             return ' '.join(result), tuple(params)
         finally:
@@ -245,13 +245,13 @@ class SQLInsertCompiler(compiler.SQLInsertCompiler, SQLCompiler):
         # going to be column names (so we can avoid the extra overhead).
         qn = self.connection.ops.quote_name
         opts = self.query.get_meta()
-        result = ['INSERT INTO %s' % qn(opts.db_table)]
+        result = ['INSERT INTO {0!s}'.format(qn(opts.db_table))]
 
         has_fields = bool(self.query.fields)
 
         if has_fields:
             fields = self.query.fields
-            result.append('(%s)' % ', '.join(qn(f.column) for f in fields))
+            result.append('({0!s})'.format(', '.join(qn(f.column) for f in fields)))
             values_format = 'VALUES (%s)'
             value_rows = [
                 [self.prepare_value(field, self.pre_save_val(field, obj)) for field in fields]

@@ -8,16 +8,16 @@ import time
 from django.core.exceptions import ImproperlyConfigured
 from django import VERSION
 if VERSION[:3] < (1,10,4) or VERSION[:2] >= (1,11):
-    raise ImproperlyConfigured("Django %d.%d.%d is not supported." % VERSION[:3])
+    raise ImproperlyConfigured("Django {0:d}.{1:d}.{2:d} is not supported.".format(*VERSION[:3]))
 
 try:
     import pyodbc as Database
 except ImportError as e:
-    raise ImproperlyConfigured("Error loading pyodbc module: %s" % e)
+    raise ImproperlyConfigured("Error loading pyodbc module: {0!s}".format(e))
 
 pyodbc_ver = tuple(map(int, Database.version.split('.')[:2]))
 if pyodbc_ver < (3, 0):
-    raise ImproperlyConfigured("pyodbc 3.0 or newer is required; you have %s" % Database.version)
+    raise ImproperlyConfigured("pyodbc 3.0 or newer is required; you have {0!s}".format(Database.version))
 
 from django.conf import settings
 from django.db.backends.base.base import BaseDatabaseWrapper
@@ -50,7 +50,7 @@ def encode_connection_string(fields):
     # As the keys are all provided by us, don't need to encode them as we know
     # they are ok.
     return ';'.join(
-        '%s=%s' % (k, encode_value(v))
+        '{0!s}={1!s}'.format(k, encode_value(v))
         for k, v in fields.items()
     )
 
@@ -59,7 +59,7 @@ def encode_value(v):
     then enclose it in curly braces and escape all right curly braces.
     """
     if ';' in v or v.strip(' ').startswith('{'):
-        return '{%s}' % (v.replace('}', '}}'),)
+        return '{{{0!s}}}'.format(v.replace('}', '}}'))
     return v
 
 class DatabaseWrapper(BaseDatabaseWrapper):
@@ -199,7 +199,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
             for op in self.operators:
                 sql = self.operators[op]
                 if sql.startswith('LIKE '):
-                    ops[op] = '%s COLLATE %s' % (sql, collation)
+                    ops[op] = '{0!s} COLLATE {1!s}'.format(sql, collation)
             self.operators.update(ops)
 
         self.features = DatabaseFeatures(self)
@@ -358,7 +358,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         # hasn't told us otherwise
         options = settings_dict.get('OPTIONS', {})
         datefirst = options.get('datefirst', 7)
-        cursor.execute('SET DATEFORMAT ymd; SET DATEFIRST %s' % datefirst)
+        cursor.execute('SET DATEFORMAT ymd; SET DATEFIRST {0!s}'.format(datefirst))
 
         # http://blogs.msdn.com/b/sqlnativeclient/archive/2008/02/27/microsoft-sql-server-native-client-and-microsoft-sql-server-2008-native-client.aspx
         try:
@@ -392,7 +392,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
             ver = cursor.fetchone()[0]
             ver = int(ver.split('.')[0])
             if not ver in self._sql_server_versions:
-                raise NotImplementedError('SQL Server v%d is not supported.' % ver)
+                raise NotImplementedError('SQL Server v{0:d} is not supported.'.format(ver))
             return self._sql_server_versions[ver]
 
     @cached_property
