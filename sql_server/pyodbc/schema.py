@@ -567,10 +567,12 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
         # Delete the table
         super(DatabaseSchemaEditor, self).delete_model(model)
 
-    def execute(self, sql, params=[], has_result=False):
+    def execute(self, sql, params=None, has_result=False):
         """
         Executes the given SQL statement, with optional parameters.
         """
+        if params is None:
+            params = []
         result = None
         # Log the command we're running, then run it
         logger.debug("%s; (params %r)", sql, params, extra={'params': params, 'sql': sql})
